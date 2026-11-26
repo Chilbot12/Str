@@ -1,0 +1,2033 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ShortsSub Studio — Субтитры 1–3 слова для Shorts</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            studio: {
+              bg: '#0b0d12',
+              card: '#141821',
+              elevated: '#1b202d',
+              border: '#242a38',
+              accent: '#7c5cff',
+              accentHover: '#8f73ff',
+              cyan: '#22d3ee'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif']
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- Google Fonts (Cyrillic support) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Montserrat:wght@800;900&family=Oswald:wght@700&family=Rubik:wght@700;900&family=Unbounded:wght@700;900&display=swap"
+    rel="stylesheet"
+  />
+
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+
+    body {
+      background-color: #0b0d12;
+      color: #f1f5f9;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior-y: none;
+    }
+
+    /* Custom studio scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0b0d12;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #283042;
+      border-radius: 999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #3a455e;
+    }
+
+    /* Tactile range inputs for iPad & Desktop */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 6px;
+      border-radius: 999px;
+      background: #242a38;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      margin-top: -7px;
+      border-radius: 50%;
+      background: #7c5cff;
+      border: 2px solid #ffffff;
+      box-shadow: 0 2px 8px rgba(124, 92, 255, 0.5);
+      transition: transform 0.12s ease;
+    }
+    input[type="range"]:active::-webkit-slider-thumb {
+      transform: scale(1.15);
+    }
+
+    /* 9:16 Preview Canvas Frame */
+    .canvas-stage {
+      aspect-ratio: 9 / 16;
+      max-height: 62vh;
+      width: auto;
+      max-width: 100%;
+    }
+    @media (min-width: 1024px) {
+      .canvas-stage {
+        max-height: 68vh;
+      }
+    }
+
+    /* Pulse animation for Tap-Sync button */
+    @keyframes tapPulse {
+      0% { box-shadow: 0 0 0 0 rgba(124, 92, 255, 0.55); }
+      70% { box-shadow: 0 0 0 14px rgba(124, 92, 255, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(124, 92, 255, 0); }
+    }
+    .tap-pulse {
+      animation: tapPulse 1.6s infinite;
+    }
+
+    /* Font preload helper (ensures Canvas has fonts ready immediately) */
+    .font-preload {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+      z-index: -1;
+      height: 0;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-violet-500/30 selection:text-white">
+
+  <!-- Hidden font preloader so Canvas renders Cyrillic fonts crisply on first frame -->
+  <div class="font-preload" aria-hidden="true">
+    <span style="font-family: 'Montserrat'; font-weight: 900;">АБВГД</span>
+    <span style="font-family: 'Rubik'; font-weight: 900;">АБВГД</span>
+    <span style="font-family: 'Unbounded'; font-weight: 900;">АБВГД</span>
+    <span style="font-family: 'Oswald'; font-weight: 700;">АБВГД</span>
+    <span style="font-family: 'Inter'; font-weight: 900;">АБВГД</span>
+  </div>
+
+  <!-- Hidden media elements driving playback & video background -->
+  <video id="sourceVideo" playsinline webkit-playsinline muted="false" preload="auto" class="hidden"></video>
+  <audio id="sourceAudio" preload="auto" class="hidden"></audio>
+
+  <!-- Toast notification container -->
+  <div id="toastContainer" class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none max-w-sm w-[calc(100%-2rem)]"></div>
+
+  <!-- Top Header -->
+  <header class="sticky top-0 z-30 bg-[#0b0d12]/90 backdrop-blur-md border-b border-studio-border px-4 py-3">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <!-- Brand -->
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center shadow-lg shadow-violet-500/20">
+          <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7 8h10M7 12h6m-6 4h8M5 4h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-base sm:text-lg font-extrabold tracking-tight text-white leading-none">ShortsSub Studio</h1>
+          <p class="text-[11px] text-slate-400 mt-0.5">1–3 слова • 9:16 Full HD • Без боли в CapCut</p>
+        </div>
+      </div>
+
+      <!-- Right Header Controls -->
+      <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
+        <!-- Media info pill -->
+        <div id="mediaBadge" class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-studio-card border border-studio-border text-xs text-slate-300">
+          <span id="mediaDot" class="w-2 h-2 rounded-full bg-slate-500"></span>
+          <span id="mediaName" class="max-w-[160px] truncate">Демо-режим (15с)</span>
+          <button id="clearMediaBtn" class="hidden text-slate-400 hover:text-rose-400 ml-1" title="Убрать файл">✕</button>
+        </div>
+
+        <!-- Upload Media Button -->
+        <label class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-studio-elevated hover:bg-[#242b3d] border border-studio-border text-xs sm:text-sm font-semibold text-white cursor-pointer transition active:scale-95">
+          <svg class="w-4 h-4 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+          </svg>
+          <span>Видео / Аудио</span>
+          <input id="mediaFileInput" type="file" accept="video/*,audio/*,.mp4,.mov,.mp3,.wav,.m4a" class="hidden" />
+        </label>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-4 lg:p-5 grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 items-start">
+
+    <!-- LEFT COLUMN: 9:16 Canvas Preview + Playback + Background Modes -->
+    <section id="dropZone" class="lg:col-span-5 flex flex-col gap-3 bg-studio-card border border-studio-border rounded-2xl p-3 sm:p-4 transition-colors">
+      <!-- Top bar: Background mode & Safe Zone -->
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="inline-flex bg-[#0b0d12] p-1 rounded-xl border border-studio-border text-xs font-semibold">
+          <button data-bg="black" class="bg-mode-btn px-2.5 py-1.5 rounded-lg transition bg-studio-accent text-white">Чёрный</button>
+          <button data-bg="chroma" class="bg-mode-btn px-2.5 py-1.5 rounded-lg transition text-slate-400 hover:text-white">Хромакей</button>
+          <button data-bg="video" class="bg-mode-btn px-2.5 py-1.5 rounded-lg transition text-slate-400 hover:text-white">Видео</button>
+        </div>
+
+        <label class="inline-flex items-center gap-2 text-xs text-slate-300 cursor-pointer select-none px-2 py-1 rounded-lg hover:bg-studio-elevated">
+          <input id="safeZoneToggle" type="checkbox" checked class="w-4 h-4 rounded accent-violet-500 cursor-pointer" />
+          <span>Зона Shorts</span>
+        </label>
+      </div>
+
+      <!-- 9:16 Preview Stage -->
+      <div class="relative flex items-center justify-center bg-[#07090d] rounded-2xl border border-studio-border/80 p-2 sm:p-3 overflow-hidden">
+        <canvas
+          id="previewCanvas"
+          width="1080"
+          height="1920"
+          class="canvas-stage rounded-xl shadow-2xl ring-1 ring-white/10 bg-black"
+        ></canvas>
+
+        <!-- Drop overlay indicator -->
+        <div id="dropOverlay" class="hidden absolute inset-0 bg-violet-600/25 backdrop-blur-sm border-2 border-dashed border-violet-400 rounded-2xl flex flex-col items-center justify-center text-center p-4 pointer-events-none">
+          <p class="text-base font-bold text-white">Отпусти файл сюда</p>
+          <p class="text-xs text-violet-200 mt-1">MP4, MOV, MP3, WAV, M4A</p>
+        </div>
+      </div>
+
+      <!-- Playback Controls -->
+      <div class="bg-[#0b0d12] border border-studio-border rounded-xl p-3 flex flex-col gap-2.5">
+        <div class="flex items-center gap-3">
+          <button
+            id="playPauseBtn"
+            class="w-11 h-11 shrink-0 rounded-xl bg-studio-accent hover:bg-studio-accentHover text-white flex items-center justify-center shadow-lg shadow-violet-500/25 transition active:scale-95"
+            title="Воспроизвести / Пауза"
+          >
+            <svg id="playIcon" class="w-5 h-5 translate-x-0.5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+            <svg id="pauseIcon" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M6 5h4v14H6zm8 0h4v14h-4z" />
+            </svg>
+          </button>
+
+          <div class="flex-1 flex flex-col gap-1">
+            <input id="timelineScrubber" type="range" min="0" max="15" step="0.01" value="0" class="w-full" />
+            <div class="flex items-center justify-between text-[11px] font-mono text-slate-400">
+              <span id="currentTimeLabel">00:00.0</span>
+              <span id="activeChunkBadge" class="text-violet-300 font-sans font-medium truncate max-w-[180px]">Фраза —</span>
+              <span id="totalDurationLabel">00:15.0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Tap-Sync Status Bar (visible while syncing) -->
+        <div id="syncQuickBar" class="hidden pt-2 border-t border-studio-border flex items-center justify-between gap-2">
+          <div class="text-xs text-emerald-400 font-semibold flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+            Идёт тап-синхронизация
+          </div>
+          <button id="stopSyncQuickBtn" class="px-3 py-1.5 rounded-lg bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 text-xs font-bold">
+            Стоп
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT COLUMN: 4-Tab Studio Controls -->
+    <section class="lg:col-span-7 flex flex-col bg-studio-card border border-studio-border rounded-2xl overflow-hidden">
+      <!-- Tabs Navigation -->
+      <nav class="grid grid-cols-4 border-b border-studio-border bg-[#0f131b] p-1.5 gap-1">
+        <button data-tab="text" class="tab-btn py-2.5 px-2 rounded-xl text-xs sm:text-sm font-bold transition bg-studio-accent text-white shadow">
+          1. Текст
+        </button>
+        <button data-tab="timing" class="tab-btn py-2.5 px-2 rounded-xl text-xs sm:text-sm font-bold transition text-slate-400 hover:text-white hover:bg-studio-elevated">
+          2. Тайминг
+        </button>
+        <button data-tab="style" class="tab-btn py-2.5 px-2 rounded-xl text-xs sm:text-sm font-bold transition text-slate-400 hover:text-white hover:bg-studio-elevated">
+          3. Стиль
+        </button>
+        <button data-tab="export" class="tab-btn py-2.5 px-2 rounded-xl text-xs sm:text-sm font-bold transition text-slate-400 hover:text-white hover:bg-studio-elevated">
+          4. Экспорт
+        </button>
+      </nav>
+
+      <!-- TAB 1: 1. ТЕКСТ -->
+      <div id="tab-text" class="tab-panel p-4 sm:p-5 flex flex-col gap-4">
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label for="scriptInput" class="text-xs font-bold uppercase tracking-wider text-slate-400">Готовый текст ролика</label>
+            <span id="wordCountBadge" class="text-xs text-slate-400">0 слов</span>
+          </div>
+          <textarea
+            id="scriptInput"
+            rows="4"
+            placeholder="Вставь сюда готовый текст для Shorts..."
+            class="w-full rounded-xl bg-[#0b0d12] border border-studio-border focus:border-violet-500 focus:ring-1 focus:ring-violet-500 outline-none p-3 text-sm text-white leading-relaxed resize-y"
+          ></textarea>
+        </div>
+
+        <!-- Slicer Controls -->
+        <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center bg-[#0f131b] border border-studio-border rounded-xl p-3">
+          <div class="sm:col-span-5 flex items-center justify-between sm:justify-start gap-2">
+            <span class="text-xs font-semibold text-slate-300">Слов на экране:</span>
+            <div class="inline-flex bg-[#0b0d12] p-1 rounded-lg border border-studio-border">
+              <button data-maxwords="1" class="max-words-btn w-8 h-8 rounded-md text-xs font-bold text-slate-400 hover:text-white">1</button>
+              <button data-maxwords="2" class="max-words-btn w-8 h-8 rounded-md text-xs font-bold text-slate-400 hover:text-white">2</button>
+              <button data-maxwords="3" class="max-words-btn w-8 h-8 rounded-md text-xs font-bold bg-studio-accent text-white">3</button>
+            </div>
+          </div>
+
+          <label class="sm:col-span-4 inline-flex items-center gap-2 text-xs text-slate-300 cursor-pointer select-none">
+            <input id="keepPrepositionsToggle" type="checkbox" checked class="w-4 h-4 rounded accent-violet-500 cursor-pointer" />
+            <span>Не отрывать предлоги</span>
+          </label>
+
+          <button
+            id="sliceTextBtn"
+            class="sm:col-span-3 w-full py-2.5 px-3 rounded-xl bg-studio-accent hover:bg-studio-accentHover text-white text-xs sm:text-sm font-bold shadow-lg shadow-violet-500/20 transition active:scale-95"
+          >
+            Нарезать
+          </button>
+        </div>
+
+        <!-- Editable Chunks List -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">Фразы (<span id="chunkCountLabel">0</span>)</h2>
+            <button id="addChunkBtn" class="text-xs font-semibold text-violet-400 hover:text-violet-300 px-2 py-1 rounded-lg hover:bg-violet-500/10">
+              + Добавить фразу
+            </button>
+          </div>
+          <div id="textChunksList" class="flex flex-col gap-2 max-h-[340px] overflow-y-auto pr-1"></div>
+        </div>
+      </div>
+
+      <!-- TAB 2: 2. ТАЙМИНГ -->
+      <div id="tab-timing" class="tab-panel hidden p-4 sm:p-5 flex flex-col gap-4">
+        <!-- Tap-to-Sync Studio Card -->
+        <div class="bg-[#0f131b] border border-studio-border rounded-2xl p-4 flex flex-col gap-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 class="text-sm font-extrabold text-white">Тап-синхронизация в ритм</h2>
+              <p class="text-xs text-slate-400">Жми Пробел или большую кнопку, когда диктор начинает следующую фразу</p>
+            </div>
+            <div class="inline-flex items-center gap-1.5 bg-[#0b0d12] p-1 rounded-xl border border-studio-border text-xs font-bold">
+              <span class="text-slate-400 px-1.5">Скорость:</span>
+              <button data-speed="0.75" class="sync-speed-btn px-2.5 py-1 rounded-lg text-slate-400 hover:text-white">0.75x</button>
+              <button data-speed="1" class="sync-speed-btn px-2.5 py-1 rounded-lg bg-studio-accent text-white">1.0x</button>
+            </div>
+          </div>
+
+          <!-- Idle State -->
+          <div id="syncIdleControls" class="flex flex-wrap gap-2">
+            <button
+              id="startSyncBtn"
+              class="flex-1 min-w-[200px] py-3.5 px-4 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-white text-sm font-extrabold shadow-lg shadow-violet-600/25 transition active:scale-[0.98]"
+            >
+              Начать синхронизацию (Тап в ритм)
+            </button>
+            <button
+              id="autoTimingBtn"
+              class="py-3.5 px-4 rounded-xl bg-studio-elevated hover:bg-[#262d40] border border-studio-border text-slate-200 text-xs sm:text-sm font-bold transition active:scale-95"
+            >
+              Авто-тайминг (равномерно)
+            </button>
+          </div>
+
+          <!-- Active Tap-Sync Teleprompter -->
+          <div id="syncActivePanel" class="hidden flex flex-col gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div class="bg-[#0b0d12] border border-violet-500/50 rounded-xl p-3">
+                <div class="text-[10px] uppercase tracking-wider font-bold text-violet-400 mb-1">Сейчас на экране</div>
+                <div id="syncCurrentText" class="text-lg sm:text-xl font-black text-white truncate">—</div>
+              </div>
+              <div class="bg-[#0b0d12] border border-studio-border rounded-xl p-3">
+                <div class="text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-1">Следующая (по тапу)</div>
+                <div id="syncNextText" class="text-lg sm:text-xl font-bold text-slate-300 truncate">—</div>
+              </div>
+            </div>
+
+            <button
+              id="tapNextBtn"
+              class="tap-pulse w-full py-5 px-4 rounded-2xl bg-studio-accent hover:bg-studio-accentHover active:scale-[0.97] text-white text-base sm:text-lg font-black tracking-wide shadow-xl shadow-violet-600/30 transition select-none"
+            >
+              ТАП — СЛЕДУЮЩАЯ ФРАЗА (Пробел)
+            </button>
+
+            <div class="flex items-center gap-2">
+              <button id="undoTapBtn" class="flex-1 py-2.5 px-3 rounded-xl bg-studio-elevated hover:bg-[#262d40] border border-studio-border text-xs font-bold text-slate-200 transition active:scale-95">
+                ↩ Назад (Z)
+              </button>
+              <button id="finishSyncBtn" class="flex-1 py-2.5 px-3 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-xs font-bold text-emerald-300 transition active:scale-95">
+                ✓ Стоп / Готово
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Fine-tuning Timeline List -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Точная подстройка тайминга</h3>
+            <span class="text-[11px] text-slate-400">Нажми на фразу для предпросмотра</span>
+          </div>
+          <div id="timingChunksList" class="flex flex-col gap-2 max-h-[340px] overflow-y-auto pr-1"></div>
+        </div>
+      </div>
+
+      <!-- TAB 3: 3. СТИЛЬ -->
+      <div id="tab-style" class="tab-panel hidden p-4 sm:p-5 flex flex-col gap-4">
+        <!-- 1-Click Style Presets -->
+        <div>
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Быстрые пресеты (1 клик)</h2>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <button data-preset="classic" class="preset-btn p-2.5 rounded-xl bg-[#0f131b] border border-studio-border hover:border-violet-500 text-left transition active:scale-95">
+              <div class="text-xs font-black text-white" style="font-family: 'Montserrat'; text-shadow: 0 2px 4px #000;">КЛАССИКА</div>
+              <div class="text-[10px] text-slate-400 mt-0.5">Montserrat • Pop</div>
+            </button>
+            <button data-preset="accent" class="preset-btn p-2.5 rounded-xl bg-[#0f131b] border border-studio-border hover:border-violet-500 text-left transition active:scale-95">
+              <div class="text-xs font-black text-[#FFE600]" style="font-family: 'Unbounded'; text-shadow: 0 2px 4px #000;">АКЦЕНТ</div>
+              <div class="text-[10px] text-slate-400 mt-0.5">Unbounded • Прыжок</div>
+            </button>
+            <button data-preset="karaoke" class="preset-btn p-2.5 rounded-xl bg-[#0f131b] border border-studio-border hover:border-violet-500 text-left transition active:scale-95">
+              <div class="text-xs font-black text-[#4ADE80]" style="font-family: 'Rubik'; text-shadow: 0 2px 4px #000;">КАРАОКЕ</div>
+              <div class="text-[10px] text-slate-400 mt-0.5">Rubik • По словам</div>
+            </button>
+            <button data-preset="neon" class="preset-btn p-2.5 rounded-xl bg-[#0f131b] border border-studio-border hover:border-violet-500 text-left transition active:scale-95">
+              <div class="text-xs font-bold text-white" style="font-family: 'Oswald'; text-shadow: 0 0 8px #22d3ee;">НЕОН</div>
+              <div class="text-[10px] text-slate-400 mt-0.5">Oswald • Выезд</div>
+            </button>
+          </div>
+        </div>
+
+        <!-- Font & Animation Row -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label for="fontSelect" class="block text-xs font-semibold text-slate-400 mb-1">Шрифт (кириллица)</label>
+            <select id="fontSelect" class="w-full rounded-xl bg-[#0b0d12] border border-studio-border px-3 py-2.5 text-sm font-semibold text-white outline-none focus:border-violet-500">
+              <option value="Montserrat">Montserrat (Жирный)</option>
+              <option value="Rubik">Rubik (Мягкий)</option>
+              <option value="Unbounded">Unbounded (Широкий)</option>
+              <option value="Oswald">Oswald (Высокий)</option>
+              <option value="Inter">Inter (Чистый)</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="animationSelect" class="block text-xs font-semibold text-slate-400 mb-1">Анимация появления</label>
+            <select id="animationSelect" class="w-full rounded-xl bg-[#0b0d12] border border-studio-border px-3 py-2.5 text-sm font-semibold text-white outline-none focus:border-violet-500">
+              <option value="pop">Pop (Пружинка)</option>
+              <option value="bounce">Bounce (Прыжок)</option>
+              <option value="slideUp">Slide Up (Выезд)</option>
+              <option value="zoomPunch">Zoom Punch (Удар)</option>
+              <option value="karaoke">Karaoke (По словам)</option>
+              <option value="none">Без анимации</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Global Size & Y-Position Sliders -->
+        <div class="bg-[#0f131b] border border-studio-border rounded-xl p-3.5 flex flex-col gap-3.5">
+          <div>
+            <div class="flex items-center justify-between text-xs mb-1">
+              <span class="font-semibold text-slate-300">Размер текста (глобальный + авто-вписывание)</span>
+              <span id="fontSizeVal" class="font-mono font-bold text-violet-300">92 px</span>
+            </div>
+            <input id="fontSizeSlider" type="range" min="40" max="150" value="92" class="w-full" />
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between text-xs mb-1">
+              <span class="font-semibold text-slate-300">Позиция по вертикали (Y)</span>
+              <span id="posYVal" class="font-mono font-bold text-violet-300">68%</span>
+            </div>
+            <input id="posYSlider" type="range" min="15" max="85" value="68" class="w-full" />
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div>
+              <div class="flex items-center justify-between text-xs mb-1">
+                <span class="font-semibold text-slate-300">Толщина обводки</span>
+                <span id="outlineWidthVal" class="font-mono font-bold text-violet-300">12 px</span>
+              </div>
+              <input id="outlineWidthSlider" type="range" min="0" max="25" value="12" class="w-full" />
+            </div>
+
+            <div>
+              <div class="flex items-center justify-between text-xs mb-1">
+                <span class="font-semibold text-slate-300">Тень / Свечение</span>
+                <span id="shadowBlurVal" class="font-mono font-bold text-violet-300">14 px</span>
+              </div>
+              <input id="shadowBlurSlider" type="range" min="0" max="40" value="14" class="w-full" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Colors & Uppercase -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 items-center">
+          <label class="flex flex-col gap-1 bg-[#0f131b] border border-studio-border rounded-xl p-2.5 cursor-pointer">
+            <span class="text-[11px] text-slate-400 font-semibold">Текст</span>
+            <div class="flex items-center gap-2">
+              <input id="textColorInput" type="color" value="#ffffff" class="w-7 h-7 rounded cursor-pointer bg-transparent border-0" />
+              <span id="textColorHex" class="text-xs font-mono text-slate-300 uppercase">#FFFFFF</span>
+            </div>
+          </label>
+
+          <label class="flex flex-col gap-1 bg-[#0f131b] border border-studio-border rounded-xl p-2.5 cursor-pointer">
+            <span class="text-[11px] text-slate-400 font-semibold">Акцент / Караоке</span>
+            <div class="flex items-center gap-2">
+              <input id="accentColorInput" type="color" value="#4ade80" class="w-7 h-7 rounded cursor-pointer bg-transparent border-0" />
+              <span id="accentColorHex" class="text-xs font-mono text-slate-300 uppercase">#4ADE80</span>
+            </div>
+          </label>
+
+          <label class="flex flex-col gap-1 bg-[#0f131b] border border-studio-border rounded-xl p-2.5 cursor-pointer">
+            <span class="text-[11px] text-slate-400 font-semibold">Обводка / Тень</span>
+            <div class="flex items-center gap-2">
+              <input id="outlineColorInput" type="color" value="#000000" class="w-7 h-7 rounded cursor-pointer bg-transparent border-0" />
+              <span id="outlineColorHex" class="text-xs font-mono text-slate-300 uppercase">#000000</span>
+            </div>
+          </label>
+
+          <label class="flex items-center justify-center gap-2.5 h-full bg-[#0f131b] border border-studio-border rounded-xl p-2.5 cursor-pointer select-none">
+            <input id="uppercaseToggle" type="checkbox" checked class="w-5 h-5 rounded accent-violet-500 cursor-pointer" />
+            <span class="text-xs font-extrabold text-white">КАПС</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- TAB 4: 4. ЭКСПОРТ -->
+      <div id="tab-export" class="tab-panel hidden p-4 sm:p-5 flex flex-col gap-4">
+        <div class="bg-[#0f131b] border border-studio-border rounded-2xl p-4 flex flex-col gap-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 class="text-sm font-extrabold text-white">Рендер видео для CapCut</h2>
+              <p class="text-xs text-slate-400 mt-0.5">Честные 1080×1920 (9:16), без сетки безопасной зоны</p>
+            </div>
+            <span class="px-2.5 py-1 rounded-lg bg-violet-500/15 border border-violet-500/30 text-violet-300 text-xs font-mono font-bold">
+              1080 × 1920
+            </span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="bg-[#0b0d12] border border-studio-border rounded-xl p-3 flex items-center justify-between">
+              <span class="text-xs font-semibold text-slate-300">Частота кадров</span>
+              <div class="inline-flex bg-studio-card p-1 rounded-lg border border-studio-border">
+                <button data-fps="30" class="fps-btn px-3 py-1 rounded-md text-xs font-bold bg-studio-accent text-white">30 FPS</button>
+                <button data-fps="60" class="fps-btn px-3 py-1 rounded-md text-xs font-bold text-slate-400 hover:text-white">60 FPS</button>
+              </div>
+            </div>
+
+            <label class="bg-[#0b0d12] border border-studio-border rounded-xl p-3 flex items-center justify-between cursor-pointer select-none">
+              <span class="text-xs font-semibold text-slate-300">Записать со звуком</span>
+              <input id="includeAudioToggle" type="checkbox" checked class="w-5 h-5 rounded accent-violet-500 cursor-pointer" />
+            </label>
+          </div>
+
+          <!-- Export Action Buttons -->
+          <div class="flex flex-wrap gap-2.5">
+            <button
+              id="startExportBtn"
+              class="flex-1 min-w-[200px] py-3.5 px-5 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-white text-sm font-extrabold shadow-lg shadow-violet-600/25 transition active:scale-[0.98]"
+            >
+              Рендер видео
+            </button>
+            <button
+              id="cancelExportBtn"
+              class="hidden py-3.5 px-4 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 text-sm font-bold transition"
+            >
+              Отмена
+            </button>
+            <button
+              id="downloadSrtBtn"
+              class="py-3.5 px-4 rounded-xl bg-studio-elevated hover:bg-[#262d40] border border-studio-border text-slate-200 text-sm font-bold transition active:scale-95"
+            >
+              Скачать .SRT
+            </button>
+          </div>
+
+          <!-- Export Progress -->
+          <div id="exportProgressWrap" class="hidden flex flex-col gap-1.5">
+            <div class="flex items-center justify-between text-xs">
+              <span id="exportStatusText" class="text-violet-300 font-semibold">Идёт рендер...</span>
+              <span id="exportPercentText" class="font-mono font-bold text-white">0%</span>
+            </div>
+            <div class="w-full h-2.5 rounded-full bg-[#0b0d12] overflow-hidden border border-studio-border">
+              <div id="exportProgressBar" class="h-full bg-gradient-to-r from-violet-500 to-cyan-400 transition-all duration-100" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <!-- Download Ready Box -->
+          <div id="exportResultBox" class="hidden bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 flex flex-col gap-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <div class="text-sm font-extrabold text-emerald-300">Видео готово!</div>
+                <div id="exportMimeInfo" class="text-xs text-slate-300 mt-0.5">Формат: MP4</div>
+              </div>
+              <a
+                id="downloadVideoLink"
+                download="shorts_subtitles.mp4"
+                class="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs sm:text-sm font-black transition active:scale-95"
+              >
+                Скачать видео
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- CapCut Integration Cheat Sheet -->
+        <div class="bg-[#0f131b] border border-studio-border rounded-2xl p-4 text-xs text-slate-300 leading-relaxed flex flex-col gap-2">
+          <div class="font-bold text-white text-sm">Как закинуть в CapCut на iPad за 10 секунд:</div>
+          <p><span class="text-violet-400 font-bold">1. Если фон Чёрный:</span> добавь видео через <b>Наложение (Overlay)</b> → нажми <b>Смешивание (Blend)</b> → выбери <b>Осветление (Lighten / Screen)</b>. Чёрный исчезнет, останутся чистые сабы.</p>
+          <p><span class="text-emerald-400 font-bold">2. Если фон Хромакей:</span> добавь через <b>Наложение</b> → <b>Вырезка (Cutout)</b> → <b>Хромакей</b> → наведи пипетку на зелёный и подкрути интенсивность (лучше всего, если у текста чёрная обводка).</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      // =========================================================================
+      // 1. CONSTANTS & DEFAULT STATE
+      // =========================================================================
+      const CANVAS_W = 1080;
+      const CANVAS_H = 1920;
+      const SAFE_MAX_TEXT_WIDTH = 920; // Auto-fit boundary so text never clips off sides
+
+      const RU_PREPOSITIONS = new Set([
+        'в', 'на', 'с', 'к', 'по', 'у', 'о', 'а', 'и', 'но', 'не', 'ни',
+        'за', 'из', 'от', 'до', 'об', 'во', 'со', 'же', 'бы', 'ли', 'что', 'как', 'это'
+      ]);
+
+      const DEMO_SCRIPT =
+        'Хватит тратить два часа на кривые субтитры в CapCut. ' +
+        'Просто вставь готовый текст, нажми пробел в ритм голоса и забери идеальные титры по три слова с плавной анимацией.';
+
+      const STYLE_PRESETS = {
+        classic: {
+          font: 'Montserrat',
+          size: 92,
+          posY: 68,
+          uppercase: true,
+          color: '#ffffff',
+          accentColor: '#ffe600',
+          outlineColor: '#000000',
+          outlineWidth: 14,
+          shadowBlur: 14,
+          animation: 'pop'
+        },
+        accent: {
+          font: 'Unbounded',
+          size: 86,
+          posY: 68,
+          uppercase: true,
+          color: '#ffe600',
+          accentColor: '#ffffff',
+          outlineColor: '#000000',
+          outlineWidth: 16,
+          shadowBlur: 18,
+          animation: 'bounce'
+        },
+        karaoke: {
+          font: 'Rubik',
+          size: 94,
+          posY: 68,
+          uppercase: true,
+          color: '#ffffff',
+          accentColor: '#4ade80',
+          outlineColor: '#000000',
+          outlineWidth: 14,
+          shadowBlur: 12,
+          animation: 'karaoke'
+        },
+        neon: {
+          font: 'Oswald',
+          size: 108,
+          posY: 68,
+          uppercase: true,
+          color: '#ffffff',
+          accentColor: '#22d3ee',
+          outlineColor: '#22d3ee',
+          outlineWidth: 4,
+          shadowBlur: 32,
+          animation: 'slideUp'
+        }
+      };
+
+      const state = {
+        mediaUrl: null,
+        mediaType: 'none', // 'none' | 'video' | 'audio'
+        mediaDuration: 15.0,
+        bgMode: 'black', // 'black' | 'chroma' | 'video'
+        showSafeZone: true,
+
+        maxWords: 3,
+        keepPrepositions: true,
+        chunks: [],
+
+        playback: {
+          isPlaying: false,
+          currentTime: 0,
+          lastFrameTs: 0
+        },
+
+        sync: {
+          active: false,
+          speed: 1.0,
+          currentIndex: 0,
+          history: []
+        },
+
+        style: { ...STYLE_PRESETS.classic },
+
+        export: {
+          fps: 30,
+          includeAudio: true,
+          isExporting: false,
+          cancelled: false,
+          recorder: null,
+          downloadUrl: null
+        }
+      };
+
+      // AudioContext cache (prevents InvalidStateError on repeated exports in Safari/Chrome)
+      let audioCtx = null;
+      let audioDestNode = null;
+      const mediaSourceNodes = new WeakMap();
+
+      // =========================================================================
+      // 2. DOM ELEMENTS
+      // =========================================================================
+      const canvas = document.getElementById('previewCanvas');
+      const ctx = canvas.getContext('2d');
+      const sourceVideo = document.getElementById('sourceVideo');
+      const sourceAudio = document.getElementById('sourceAudio');
+
+      const dropZone = document.getElementById('dropZone');
+      const dropOverlay = document.getElementById('dropOverlay');
+      const mediaFileInput = document.getElementById('mediaFileInput');
+      const mediaName = document.getElementById('mediaName');
+      const mediaDot = document.getElementById('mediaDot');
+      const clearMediaBtn = document.getElementById('clearMediaBtn');
+
+      const safeZoneToggle = document.getElementById('safeZoneToggle');
+      const playPauseBtn = document.getElementById('playPauseBtn');
+      const playIcon = document.getElementById('playIcon');
+      const pauseIcon = document.getElementById('pauseIcon');
+      const timelineScrubber = document.getElementById('timelineScrubber');
+      const currentTimeLabel = document.getElementById('currentTimeLabel');
+      const totalDurationLabel = document.getElementById('totalDurationLabel');
+      const activeChunkBadge = document.getElementById('activeChunkBadge');
+      const syncQuickBar = document.getElementById('syncQuickBar');
+      const stopSyncQuickBtn = document.getElementById('stopSyncQuickBtn');
+
+      // Tab 1
+      const scriptInput = document.getElementById('scriptInput');
+      const wordCountBadge = document.getElementById('wordCountBadge');
+      const keepPrepositionsToggle = document.getElementById('keepPrepositionsToggle');
+      const sliceTextBtn = document.getElementById('sliceTextBtn');
+      const addChunkBtn = document.getElementById('addChunkBtn');
+      const chunkCountLabel = document.getElementById('chunkCountLabel');
+      const textChunksList = document.getElementById('textChunksList');
+
+      // Tab 2
+      const syncIdleControls = document.getElementById('syncIdleControls');
+      const syncActivePanel = document.getElementById('syncActivePanel');
+      const startSyncBtn = document.getElementById('startSyncBtn');
+      const autoTimingBtn = document.getElementById('autoTimingBtn');
+      const syncCurrentText = document.getElementById('syncCurrentText');
+      const syncNextText = document.getElementById('syncNextText');
+      const tapNextBtn = document.getElementById('tapNextBtn');
+      const undoTapBtn = document.getElementById('undoTapBtn');
+      const finishSyncBtn = document.getElementById('finishSyncBtn');
+      const timingChunksList = document.getElementById('timingChunksList');
+
+      // Tab 3
+      const fontSelect = document.getElementById('fontSelect');
+      const animationSelect = document.getElementById('animationSelect');
+      const fontSizeSlider = document.getElementById('fontSizeSlider');
+      const fontSizeVal = document.getElementById('fontSizeVal');
+      const posYSlider = document.getElementById('posYSlider');
+      const posYVal = document.getElementById('posYVal');
+      const outlineWidthSlider = document.getElementById('outlineWidthSlider');
+      const outlineWidthVal = document.getElementById('outlineWidthVal');
+      const shadowBlurSlider = document.getElementById('shadowBlurSlider');
+      const shadowBlurVal = document.getElementById('shadowBlurVal');
+      const textColorInput = document.getElementById('textColorInput');
+      const textColorHex = document.getElementById('textColorHex');
+      const accentColorInput = document.getElementById('accentColorInput');
+      const accentColorHex = document.getElementById('accentColorHex');
+      const outlineColorInput = document.getElementById('outlineColorInput');
+      const outlineColorHex = document.getElementById('outlineColorHex');
+      const uppercaseToggle = document.getElementById('uppercaseToggle');
+
+      // Tab 4
+      const includeAudioToggle = document.getElementById('includeAudioToggle');
+      const startExportBtn = document.getElementById('startExportBtn');
+      const cancelExportBtn = document.getElementById('cancelExportBtn');
+      const downloadSrtBtn = document.getElementById('downloadSrtBtn');
+      const exportProgressWrap = document.getElementById('exportProgressWrap');
+      const exportStatusText = document.getElementById('exportStatusText');
+      const exportPercentText = document.getElementById('exportPercentText');
+      const exportProgressBar = document.getElementById('exportProgressBar');
+      const exportResultBox = document.getElementById('exportResultBox');
+      const exportMimeInfo = document.getElementById('exportMimeInfo');
+      const downloadVideoLink = document.getElementById('downloadVideoLink');
+
+      // =========================================================================
+      // 3. UTILITIES (TOASTS, TIME FORMAT, ACTIVE MEDIA)
+      // =========================================================================
+      function showToast(message, type = 'info') {
+        const container = document.getElementById('toastContainer');
+        const el = document.createElement('div');
+        const colors = {
+          info: 'bg-studio-elevated border-studio-border text-white',
+          success: 'bg-emerald-950/90 border-emerald-500/40 text-emerald-200',
+          error: 'bg-rose-950/90 border-rose-500/40 text-rose-200'
+        };
+        el.className = `pointer-events-auto px-4 py-3 rounded-xl border text-xs sm:text-sm font-semibold shadow-xl backdrop-blur-md transition-all duration-200 ${colors[type] || colors.info}`;
+        el.textContent = message;
+        container.appendChild(el);
+        setTimeout(() => {
+          el.style.opacity = '0';
+          el.style.transform = 'translateY(-6px)';
+          setTimeout(() => el.remove(), 220);
+        }, 3200);
+      }
+
+      function getActiveMediaEl() {
+        if (state.mediaType === 'video') return sourceVideo;
+        if (state.mediaType === 'audio') return sourceAudio;
+        return null;
+      }
+
+      function formatClock(sec) {
+        const safe = Math.max(0, Number.isFinite(sec) ? sec : 0);
+        const mins = Math.floor(safe / 60);
+        const rem = safe - mins * 60;
+        const wholeSec = Math.floor(rem);
+        const tenths = Math.floor((rem - wholeSec) * 10);
+        return `${String(mins).padStart(2, '0')}:${String(wholeSec).padStart(2, '0')}.${tenths}`;
+      }
+
+      function formatSrtTime(sec) {
+        const totalMs = Math.max(0, Math.round(sec * 1000));
+        const h = Math.floor(totalMs / 3600000);
+        const m = Math.floor((totalMs % 3600000) / 60000);
+        const s = Math.floor((totalMs % 60000) / 1000);
+        const ms = totalMs % 1000;
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')},${String(ms).padStart(3, '0')}`;
+      }
+
+      function uid() {
+        return Math.random().toString(36).slice(2, 9);
+      }
+
+      // =========================================================================
+      // 4. SMART 1-3 WORD SLICER & AUTO-TIMING
+      // =========================================================================
+      function cleanWordForPrepositionCheck(word) {
+        return word.toLowerCase().replace(/^[^а-яёa-z0-9]+|[^а-яёa-z0-9]+$/gi, '');
+      }
+
+      function sliceTextToChunks(rawText, maxWords, keepPrepositions) {
+        const words = rawText.trim().split(/\s+/).filter(Boolean);
+        if (!words.length) return [];
+
+        const phrases = [];
+        let current = [];
+
+        for (let i = 0; i < words.length; i++) {
+          const word = words[i];
+          current.push(word);
+
+          const endsSentence = /[.!?…]$/.test(word);
+          const reachedLimit = current.length >= maxWords;
+
+          if (endsSentence || reachedLimit) {
+            // Avoid ending a multi-word chunk on a hanging preposition if there are more words left
+            const hasMoreWords = i < words.length - 1;
+            const lastClean = cleanWordForPrepositionCheck(current[current.length - 1]);
+
+            if (
+              keepPrepositions &&
+              !endsSentence &&
+              hasMoreWords &&
+              current.length > 1 &&
+              RU_PREPOSITIONS.has(lastClean)
+            ) {
+              const movedWord = current.pop();
+              phrases.push(current.join(' '));
+              current = [movedWord];
+            } else {
+              phrases.push(current.join(' '));
+              current = [];
+            }
+          }
+        }
+
+        if (current.length) {
+          phrases.push(current.join(' '));
+        }
+
+        return phrases.map((text) => ({
+          id: uid(),
+          text,
+          start: 0,
+          end: 1
+        }));
+      }
+
+      function distributeAutoTiming() {
+        if (!state.chunks.length) return;
+        const totalDur = Math.max(2, state.mediaDuration || 15);
+        const weights = state.chunks.map((c) => Math.max(3, c.text.replace(/\s+/g, '').length));
+        const totalWeight = weights.reduce((a, b) => a + b, 0) || 1;
+
+        let cursor = 0;
+        state.chunks.forEach((chunk, idx) => {
+          const dur = (weights[idx] / totalWeight) * totalDur;
+          chunk.start = Number(cursor.toFixed(2));
+          cursor += dur;
+          chunk.end = Number((idx === state.chunks.length - 1 ? totalDur : cursor).toFixed(2));
+        });
+
+        renderAllChunkLists();
+        updateScrubberBounds();
+      }
+
+      // =========================================================================
+      // 5. MEDIA LOADING (UPLOAD & DRAG-AND-DROP)
+      // =========================================================================
+      function handleMediaFile(file) {
+        if (!file) return;
+        const isVideo = file.type.startsWith('video/') || /\.(mp4|mov|webm|m4v)$/i.test(file.name);
+        const isAudio = file.type.startsWith('audio/') || /\.(mp3|wav|m4a|ogg|aac)$/i.test(file.name);
+
+        if (!isVideo && !isAudio) {
+          showToast('Поддерживаются видео (MP4, MOV) и аудио (MP3, WAV, M4A)', 'error');
+          return;
+        }
+
+        stopPlayback();
+        if (state.mediaUrl) URL.revokeObjectURL(state.mediaUrl);
+
+        state.mediaUrl = URL.createObjectURL(file);
+        state.mediaType = isVideo ? 'video' : 'audio';
+
+        sourceVideo.pause();
+        sourceAudio.pause();
+        sourceVideo.removeAttribute('src');
+        sourceAudio.removeAttribute('src');
+
+        const el = getActiveMediaEl();
+        el.src = state.mediaUrl;
+        el.load();
+
+        el.onloadedmetadata = () => {
+          state.mediaDuration = Number.isFinite(el.duration) && el.duration > 0 ? el.duration : 15.0;
+          state.playback.currentTime = 0;
+          mediaName.textContent = file.name;
+          mediaDot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+          clearMediaBtn.classList.remove('hidden');
+
+          if (isVideo) {
+            setBgMode('video');
+          }
+
+          distributeAutoTiming();
+          updateScrubberBounds();
+          showToast(`Загружен файл: ${file.name} (${formatClock(state.mediaDuration)})`, 'success');
+        };
+
+        el.onerror = () => {
+          showToast('Не удалось прочитать медиафайл в этом браузере', 'error');
+        };
+      }
+
+      function clearMedia() {
+        stopPlayback();
+        if (state.mediaUrl) URL.revokeObjectURL(state.mediaUrl);
+        state.mediaUrl = null;
+        state.mediaType = 'none';
+        state.mediaDuration = 15.0;
+        sourceVideo.removeAttribute('src');
+        sourceAudio.removeAttribute('src');
+        mediaName.textContent = 'Демо-режим (15с)';
+        mediaDot.className = 'w-2 h-2 rounded-full bg-slate-500';
+        clearMediaBtn.classList.add('hidden');
+        if (state.bgMode === 'video') setBgMode('black');
+        distributeAutoTiming();
+        updateScrubberBounds();
+      }
+
+      // =========================================================================
+      // 6. PLAYBACK ENGINE (UNIFIED CLOCK FOR MEDIA OR DEMO MODE)
+      // =========================================================================
+      function updatePlayButtons() {
+        if (state.playback.isPlaying) {
+          playIcon.classList.add('hidden');
+          pauseIcon.classList.remove('hidden');
+        } else {
+          playIcon.classList.remove('hidden');
+          pauseIcon.classList.add('hidden');
+        }
+      }
+
+      function updateScrubberBounds() {
+        const dur = Math.max(0.5, state.mediaDuration);
+        timelineScrubber.max = dur.toFixed(2);
+        totalDurationLabel.textContent = formatClock(dur);
+      }
+
+      function seekTo(timeSec) {
+        const clamped = Math.max(0, Math.min(state.mediaDuration, timeSec));
+        state.playback.currentTime = clamped;
+        const el = getActiveMediaEl();
+        if (el) {
+          try {
+            el.currentTime = clamped;
+          } catch (_) {}
+        }
+        timelineScrubber.value = clamped.toFixed(2);
+        currentTimeLabel.textContent = formatClock(clamped);
+      }
+
+      async function startPlayback(rate = 1.0) {
+        if (state.playback.currentTime >= state.mediaDuration - 0.05) {
+          seekTo(0);
+        }
+        state.playback.isPlaying = true;
+        state.playback.lastFrameTs = performance.now();
+        updatePlayButtons();
+
+        const el = getActiveMediaEl();
+        if (el) {
+          el.playbackRate = rate;
+          try {
+            el.currentTime = state.playback.currentTime;
+            await el.play();
+          } catch (err) {
+            // Safe fallback if iPad Safari blocks play without gesture
+            state.playback.isPlaying = false;
+            updatePlayButtons();
+            showToast('Нажми Play ещё раз для запуска звука на iPad', 'info');
+          }
+        }
+      }
+
+      function stopPlayback() {
+        state.playback.isPlaying = false;
+        updatePlayButtons();
+        const el = getActiveMediaEl();
+        if (el) {
+          try {
+            el.pause();
+          } catch (_) {}
+        }
+      }
+
+      function togglePlayback() {
+        if (state.export.isExporting) return;
+        if (state.playback.isPlaying) {
+          stopPlayback();
+        } else {
+          startPlayback(state.sync.active ? state.sync.speed : 1.0);
+        }
+      }
+
+      // =========================================================================
+      // 7. TAP-TO-SYNC ENGINE
+      // =========================================================================
+      function updateSyncTeleprompter() {
+        const idx = state.sync.currentIndex;
+        const curr = state.chunks[idx];
+        const next = state.chunks[idx + 1];
+        syncCurrentText.textContent = curr ? `${idx + 1}. ${curr.text}` : 'Готово!';
+        syncNextText.textContent = next ? `${idx + 2}. ${next.text}` : 'Конец (закрыть последнюю)';
+      }
+
+      function startTapSync() {
+        if (!state.chunks.length) {
+          showToast('Сначала нарежь текст на фразы во вкладке "1. Текст"', 'error');
+          return;
+        }
+        state.sync.active = true;
+        state.sync.currentIndex = 0;
+        state.sync.history = [];
+
+        // Anchor first chunk to 0.00
+        state.chunks[0].start = 0;
+        state.chunks[0].end = state.mediaDuration;
+
+        syncIdleControls.classList.add('hidden');
+        syncActivePanel.classList.remove('hidden');
+        syncQuickBar.classList.remove('hidden');
+
+        seekTo(0);
+        updateSyncTeleprompter();
+        startPlayback(state.sync.speed);
+        showToast('Тапай или жми Пробел в ритм начала каждой следующей фразы', 'info');
+      }
+
+      function handleTapNext() {
+        if (!state.sync.active || !state.chunks.length) return;
+        const nowTime = Number(state.playback.currentTime.toFixed(2));
+        const idx = state.sync.currentIndex;
+
+        // Save snapshot for Undo (Z)
+        state.sync.history.push({
+          index: idx,
+          chunksSnapshot: state.chunks.map((c) => ({ ...c }))
+        });
+
+        const currentChunk = state.chunks[idx];
+        if (currentChunk) {
+          currentChunk.end = Math.max(currentChunk.start + 0.08, nowTime);
+        }
+
+        const nextIdx = idx + 1;
+        if (nextIdx < state.chunks.length) {
+          state.chunks[nextIdx].start = currentChunk ? currentChunk.end : nowTime;
+          state.chunks[nextIdx].end = Math.max(state.chunks[nextIdx].start + 0.5, state.mediaDuration);
+          state.sync.currentIndex = nextIdx;
+          updateSyncTeleprompter();
+          renderTimingChunksList();
+        } else {
+          // Last chunk closed — finish sync
+          finishTapSync();
+          showToast('Синхронизация завершена!', 'success');
+        }
+      }
+
+      function undoLastTap() {
+        if (!state.sync.active || !state.sync.history.length) return;
+        const prev = state.sync.history.pop();
+        state.chunks = prev.chunksSnapshot;
+        state.sync.currentIndex = prev.index;
+        const rewindTo = Math.max(0, (state.chunks[prev.index]?.start || 0) - 0.5);
+        seekTo(rewindTo);
+        updateSyncTeleprompter();
+        renderTimingChunksList();
+        showToast('Откатили последний тап', 'info');
+      }
+
+      function finishTapSync() {
+        state.sync.active = false;
+        stopPlayback();
+        const el = getActiveMediaEl();
+        if (el) el.playbackRate = 1.0;
+
+        syncIdleControls.classList.remove('hidden');
+        syncActivePanel.classList.add('hidden');
+        syncQuickBar.classList.add('hidden');
+
+        renderAllChunkLists();
+      }
+
+      // =========================================================================
+      // 8. CANVAS RENDERING ENGINE (1080x1920 PRO SUBTITLES + ANIMATIONS)
+      // =========================================================================
+      function getActiveChunkAt(timeSec) {
+        for (let i = 0; i < state.chunks.length; i++) {
+          const c = state.chunks[i];
+          if (timeSec >= c.start && timeSec <= c.end) {
+            return { chunk: c, index: i };
+          }
+        }
+        return null;
+      }
+
+      function drawVideoCover(videoEl) {
+        const vw = videoEl.videoWidth;
+        const vh = videoEl.videoHeight;
+        if (!vw || !vh) {
+          ctx.fillStyle = '#0e1118';
+          ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+          return;
+        }
+        const scale = Math.max(CANVAS_W / vw, CANVAS_H / vh);
+        const drawW = vw * scale;
+        const drawH = vh * scale;
+        const dx = (CANVAS_W - drawW) / 2;
+        const dy = (CANVAS_H - drawH) / 2;
+        ctx.drawImage(videoEl, dx, dy, drawW, drawH);
+      }
+
+      function drawSafeZoneOverlay() {
+        ctx.save();
+        // Right Shorts action buttons zone
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+        ctx.lineWidth = 2;
+
+        // Right column (likes, comments, share)
+        ctx.fillRect(CANVAS_W - 170, 920, 150, 740);
+        ctx.strokeRect(CANVAS_W - 170, 920, 150, 740);
+
+        // Bottom caption & channel title zone
+        ctx.fillRect(0, CANVAS_H - 360, CANVAS_W, 360);
+        ctx.strokeRect(1, CANVAS_H - 360, CANVAS_W - 2, 359);
+
+        // Top subtle safe bar
+        ctx.fillRect(0, 0, CANVAS_W, 180);
+
+        // Safe margin guides (80px left & right)
+        ctx.setLineDash([12, 12]);
+        ctx.strokeStyle = 'rgba(124, 92, 255, 0.45)';
+        ctx.beginPath();
+        ctx.moveTo(80, 180);
+        ctx.lineTo(80, CANVAS_H - 360);
+        ctx.moveTo(CANVAS_W - 80, 180);
+        ctx.lineTo(CANVAS_W - 80, CANVAS_H - 360);
+        ctx.stroke();
+
+        // Labels
+        ctx.setLineDash([]);
+        ctx.font = '700 26px Inter, sans-serif';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('ИНТЕРФЕЙС SHORTS (НЕ ВИДНО ПРИ ЭКСПОРТЕ)', CANVAS_W / 2, CANVAS_H - 180);
+        ctx.restore();
+      }
+
+      function computeAnimationState(animType, elapsed, duration) {
+        let scale = 1;
+        let offsetY = 0;
+        let alpha = 1;
+
+        if (animType === 'pop') {
+          const t = Math.min(1, elapsed / 0.16);
+          if (t < 0.65) {
+            const p = t / 0.65;
+            scale = 0.72 + (1.08 - 0.72) * (1 - Math.pow(1 - p, 3));
+          } else {
+            const p = (t - 0.65) / 0.35;
+            scale = 1.08 + (1.0 - 1.08) * p;
+          }
+          alpha = Math.min(1, elapsed / 0.06);
+        } else if (animType === 'bounce') {
+          const t = Math.min(1, elapsed / 0.28);
+          if (t < 1) {
+            // Energetic damped elastic bounce
+            const damping = Math.exp(-6.5 * t);
+            scale = 1 - damping * Math.cos(14 * t) * 0.35;
+            offsetY = -Math.abs(Math.sin(Math.PI * t * 1.5)) * 34 * (1 - t);
+          }
+          alpha = Math.min(1, elapsed / 0.05);
+        } else if (animType === 'slideUp') {
+          const t = Math.min(1, elapsed / 0.18);
+          const ease = 1 - Math.pow(1 - t, 3);
+          offsetY = (1 - ease) * 58;
+          alpha = ease;
+        } else if (animType === 'zoomPunch') {
+          const t = Math.min(1, elapsed / 0.14);
+          const ease = 1 - Math.pow(1 - t, 3);
+          scale = 1.28 - 0.28 * ease;
+          alpha = 0.35 + 0.65 * ease;
+        } else if (animType === 'karaoke') {
+          const t = Math.min(1, elapsed / 0.12);
+          scale = 0.92 + 0.08 * (1 - Math.pow(1 - t, 3));
+        }
+
+        return { scale, offsetY, alpha };
+      }
+
+      function renderStyledTextPiece(text, x, y, fillColor, s) {
+        ctx.save();
+        ctx.lineJoin = 'round';
+        ctx.miterLimit = 2;
+
+        // Shadow / Glow pass
+        if (s.shadowBlur > 0) {
+          ctx.shadowColor = s.outlineColor;
+          ctx.shadowBlur = s.shadowBlur;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = s.animation === 'slideUp' && s.outlineWidth <= 5 ? 0 : 6;
+        }
+
+        // Outline pass
+        if (s.outlineWidth > 0) {
+          ctx.strokeStyle = s.outlineColor;
+          ctx.lineWidth = s.outlineWidth * 2;
+          ctx.strokeText(text, x, y);
+        }
+
+        // Fill pass (clear shadow on fill so crisp edges pop cleanly)
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetY = 0;
+        ctx.fillStyle = fillColor;
+        ctx.fillText(text, x, y);
+        ctx.restore();
+      }
+
+      function renderFrame(timeSec, isExporting = false) {
+        // 1. Background
+        if (state.bgMode === 'chroma') {
+          ctx.fillStyle = '#00FF00';
+          ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+        } else if (state.bgMode === 'video' && state.mediaType === 'video' && sourceVideo.readyState >= 2) {
+          drawVideoCover(sourceVideo);
+        } else {
+          ctx.fillStyle = '#000000';
+          ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+        }
+
+        // 2. Subtitle chunk
+        const found = getActiveChunkAt(timeSec);
+        if (found) {
+          const { chunk } = found;
+          const s = state.style;
+          const rawStr = s.uppercase ? chunk.text.toUpperCase() : chunk.text;
+          const elapsed = Math.max(0, timeSec - chunk.start);
+          const duration = Math.max(0.05, chunk.end - chunk.start);
+
+          const { scale, offsetY, alpha } = computeAnimationState(s.animation, elapsed, duration);
+          const fontWeight = s.font === 'Oswald' ? 700 : 900;
+
+          // Measure & Auto-Fit horizontally so text NEVER clips off the sides
+          let effectiveSize = s.size;
+          ctx.font = `${fontWeight} ${effectiveSize}px "${s.font}", sans-serif`;
+          const measuredWidth = ctx.measureText(rawStr).width;
+          if (measuredWidth > SAFE_MAX_TEXT_WIDTH) {
+            effectiveSize = Math.max(28, Math.floor(effectiveSize * (SAFE_MAX_TEXT_WIDTH / measuredWidth)));
+            ctx.font = `${fontWeight} ${effectiveSize}px "${s.font}", sans-serif`;
+          }
+
+          const centerX = CANVAS_W / 2;
+          const centerY = (CANVAS_H * s.posY) / 100 + offsetY;
+
+          ctx.save();
+          ctx.globalAlpha = alpha;
+          ctx.textBaseline = 'middle';
+
+          if (s.animation === 'karaoke') {
+            // Word-by-word sequential highlight weighted by character length
+            const words = rawStr.split(/\s+/).filter(Boolean);
+            const charWeights = words.map((w) => Math.max(2, w.length));
+            const totalChars = charWeights.reduce((a, b) => a + b, 0) || 1;
+            const progress = Math.min(0.999, elapsed / duration);
+
+            let acc = 0;
+            let activeWordIdx = 0;
+            for (let i = 0; i < words.length; i++) {
+              acc += charWeights[i] / totalChars;
+              if (progress < acc) {
+                activeWordIdx = i;
+                break;
+              }
+            }
+
+            const spaceW = ctx.measureText(' ').width;
+            const wordWidths = words.map((w) => ctx.measureText(w).width);
+            const totalW = wordWidths.reduce((a, b) => a + b, 0) + spaceW * Math.max(0, words.length - 1);
+
+            ctx.translate(centerX, centerY);
+            ctx.scale(scale, scale);
+
+            let curX = -totalW / 2;
+            ctx.textAlign = 'center';
+
+            for (let i = 0; i < words.length; i++) {
+              const wCenter = curX + wordWidths[i] / 2;
+              const isActive = i === activeWordIdx;
+
+              ctx.save();
+              ctx.translate(wCenter, 0);
+              if (isActive) {
+                ctx.scale(1.1, 1.1);
+              }
+              renderStyledTextPiece(words[i], 0, 0, isActive ? s.accentColor : s.color, s);
+              ctx.restore();
+
+              curX += wordWidths[i] + spaceW;
+            }
+          } else {
+            ctx.translate(centerX, centerY);
+            ctx.scale(scale, scale);
+            ctx.textAlign = 'center';
+            renderStyledTextPiece(rawStr, 0, 0, s.color, s);
+          }
+
+          ctx.restore();
+        }
+
+        // 3. Safe Zone Guide (STRICTLY disabled during export!)
+        if (!isExporting && state.showSafeZone) {
+          drawSafeZoneOverlay();
+        }
+      }
+
+      // Main animation loop
+      function animationLoop(now) {
+        if (!state.export.isExporting) {
+          if (state.playback.isPlaying) {
+            const el = getActiveMediaEl();
+            if (el) {
+              state.playback.currentTime = el.currentTime;
+              if (el.ended || state.playback.currentTime >= state.mediaDuration) {
+                if (state.sync.active) {
+                  finishTapSync();
+                } else {
+                  stopPlayback();
+                  seekTo(0);
+                }
+              }
+            } else {
+              const dt = ((now - state.playback.lastFrameTs) / 1000) * (state.sync.active ? state.sync.speed : 1.0);
+              state.playback.lastFrameTs = now;
+              state.playback.currentTime += dt;
+              if (state.playback.currentTime >= state.mediaDuration) {
+                if (state.sync.active) {
+                  finishTapSync();
+                } else {
+                  state.playback.currentTime = 0;
+                }
+              }
+            }
+
+            timelineScrubber.value = state.playback.currentTime.toFixed(2);
+            currentTimeLabel.textContent = formatClock(state.playback.currentTime);
+          }
+
+          const found = getActiveChunkAt(state.playback.currentTime);
+          activeChunkBadge.textContent = found ? `#${found.index + 1} ${found.chunk.text}` : 'Пауза / нет текста';
+
+          renderFrame(state.playback.currentTime, false);
+        }
+
+        requestAnimationFrame(animationLoop);
+      }
+
+      // =========================================================================
+      // 9. EXPORT ENGINE (IPAD-SAFE VIDEO RENDER + UTF-8 SRT)
+      // =========================================================================
+      function detectBestMimeType() {
+        if (typeof MediaRecorder === 'undefined') return null;
+        const candidates = [
+          'video/mp4;codecs=avc1.42E01E',
+          'video/mp4',
+          'video/webm;codecs=vp9',
+          'video/webm;codecs=vp8',
+          'video/webm'
+        ];
+        for (const mime of candidates) {
+          if (MediaRecorder.isTypeSupported(mime)) {
+            return mime;
+          }
+        }
+        return '';
+      }
+
+      function attachAudioStreamIfPossible(combinedStream) {
+        const mediaEl = getActiveMediaEl();
+        if (!state.export.includeAudio || !mediaEl) return false;
+
+        try {
+          const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+          if (!AudioCtxClass) return false;
+
+          if (!audioCtx) {
+            audioCtx = new AudioCtxClass();
+          }
+          if (audioCtx.state === 'suspended') {
+            audioCtx.resume().catch(() => {});
+          }
+
+          let sourceNode = mediaSourceNodes.get(mediaEl);
+          if (!sourceNode) {
+            sourceNode = audioCtx.createMediaElementSource(mediaEl);
+            mediaSourceNodes.set(mediaEl, sourceNode);
+          }
+
+          if (!audioDestNode) {
+            audioDestNode = audioCtx.createMediaStreamDestination();
+          }
+
+          // Reconnect safely
+          try { sourceNode.disconnect(); } catch (_) {}
+          sourceNode.connect(audioDestNode);
+          sourceNode.connect(audioCtx.destination);
+
+          const audioTracks = audioDestNode.stream.getAudioTracks();
+          if (audioTracks.length > 0) {
+            combinedStream.addTrack(audioTracks[0]);
+            return true;
+          }
+        } catch (err) {
+          console.warn('Audio capture fallback to video-only:', err);
+        }
+        return false;
+      }
+
+      async function startVideoExport() {
+        if (state.export.isExporting) return;
+
+        const mimeType = detectBestMimeType();
+        if (mimeType === null) {
+          showToast('Этот браузер не поддерживает запись видео через MediaRecorder', 'error');
+          return;
+        }
+
+        if (state.sync.active) finishTapSync();
+        stopPlayback();
+
+        state.export.isExporting = true;
+        state.export.cancelled = false;
+        startExportBtn.disabled = true;
+        cancelExportBtn.classList.remove('hidden');
+        exportProgressWrap.classList.remove('hidden');
+        exportResultBox.classList.add('hidden');
+        exportProgressBar.style.width = '0%';
+        exportPercentText.textContent = '0%';
+        exportStatusText.textContent = 'Подготовка рендера 1080×1920...';
+
+        const fps = state.export.fps;
+        const totalDur = Math.max(1, state.mediaDuration);
+        const canvasStream = canvas.captureStream(fps);
+        const combinedStream = new MediaStream();
+        canvasStream.getVideoTracks().forEach((t) => combinedStream.addTrack(t));
+
+        const hasAudio = attachAudioStreamIfPossible(combinedStream);
+        if (state.export.includeAudio && getActiveMediaEl() && !hasAudio) {
+          showToast('Браузер ограничил захват аудио — рендерим чистую видеодорожку', 'info');
+        }
+
+        const recordedChunks = [];
+        let recorder;
+        try {
+          const options = { videoBitsPerSecond: 8_000_000 };
+          if (mimeType) options.mimeType = mimeType;
+          recorder = new MediaRecorder(combinedStream, options);
+        } catch (err) {
+          recorder = new MediaRecorder(combinedStream);
+        }
+
+        state.export.recorder = recorder;
+        recorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+        };
+
+        const exportDonePromise = new Promise((resolve) => {
+          recorder.onstop = () => resolve();
+        });
+
+        const mediaEl = getActiveMediaEl();
+        if (mediaEl) {
+          mediaEl.playbackRate = 1.0;
+          mediaEl.currentTime = 0;
+        }
+
+        renderFrame(0, true);
+        recorder.start(250);
+        exportStatusText.textContent = `Идёт рендер (${fps} FPS)... Не сворачивай вкладку`;
+
+        const startWall = performance.now();
+        if (mediaEl) {
+          try {
+            await mediaEl.play();
+          } catch (_) {}
+        }
+
+        // Frame-by-frame real-time render loop
+        await new Promise((resolve) => {
+          function step(now) {
+            if (state.export.cancelled) {
+              resolve();
+              return;
+            }
+
+            let curT = mediaEl ? mediaEl.currentTime : (now - startWall) / 1000;
+            const pct = Math.min(100, Math.round((curT / totalDur) * 100));
+            exportProgressBar.style.width = `${pct}%`;
+            exportPercentText.textContent = `${pct}%`;
+
+            renderFrame(Math.min(curT, totalDur), true);
+
+            if (curT >= totalDur || (mediaEl && mediaEl.ended)) {
+              resolve();
+              return;
+            }
+            requestAnimationFrame(step);
+          }
+          requestAnimationFrame(step);
+        });
+
+        if (mediaEl) {
+          try { mediaEl.pause(); } catch (_) {}
+        }
+
+        if (recorder.state !== 'inactive') {
+          recorder.stop();
+        }
+        await exportDonePromise;
+
+        state.export.isExporting = false;
+        state.export.recorder = null;
+        startExportBtn.disabled = false;
+        cancelExportBtn.classList.add('hidden');
+
+        if (state.export.cancelled) {
+          exportProgressWrap.classList.add('hidden');
+          showToast('Рендер отменён', 'info');
+          seekTo(0);
+          return;
+        }
+
+        const finalMime = recorder.mimeType || mimeType || 'video/mp4';
+        const isMp4 = finalMime.includes('mp4');
+        const ext = isMp4 ? 'mp4' : 'webm';
+        const blob = new Blob(recordedChunks, { type: finalMime });
+
+        if (state.export.downloadUrl) URL.revokeObjectURL(state.export.downloadUrl);
+        state.export.downloadUrl = URL.createObjectURL(blob);
+
+        const sizeMb = (blob.size / (1024 * 1024)).toFixed(1);
+        downloadVideoLink.href = state.export.downloadUrl;
+        downloadVideoLink.download = `shorts_subtitles.${ext}`;
+        exportMimeInfo.textContent = `Формат: ${ext.toUpperCase()} • ${sizeMb} МБ • 1080×1920`;
+        exportStatusText.textContent = 'Готово!';
+        exportProgressBar.style.width = '100%';
+        exportPercentText.textContent = '100%';
+        exportResultBox.classList.remove('hidden');
+
+        showToast(`Видео готово (${sizeMb} МБ)! Нажми «Скачать видео»`, 'success');
+        seekTo(0);
+      }
+
+      function downloadSrtFile() {
+        if (!state.chunks.length) {
+          showToast('Нет фраз для экспорта .SRT', 'error');
+          return;
+        }
+        const lines = state.chunks.map((c, idx) => {
+          const txt = state.style.uppercase ? c.text.toUpperCase() : c.text;
+          return `${idx + 1}\n${formatSrtTime(c.start)} --> ${formatSrtTime(c.end)}\n${txt}\n`;
+        });
+        const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'shorts_subtitles.srt';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        showToast('Файл shorts_subtitles.srt скачан (UTF-8)', 'success');
+      }
+
+      // =========================================================================
+      // 10. UI RENDERING (CHUNKS LISTS, PRESETS, TABS)
+      // =========================================================================
+      function renderTextChunksList() {
+        chunkCountLabel.textContent = state.chunks.length;
+        textChunksList.innerHTML = '';
+
+        state.chunks.forEach((chunk, idx) => {
+          const row = document.createElement('div');
+          row.className = 'flex items-center gap-2 bg-[#0b0d12] border border-studio-border rounded-xl px-2.5 py-2';
+          row.innerHTML = `
+            <span class="w-6 text-center text-[11px] font-mono font-bold text-slate-500 shrink-0">${idx + 1}</span>
+            <input
+              type="text"
+              value="${chunk.text.replace(/"/g, '&quot;')}"
+              class="chunk-text-input flex-1 bg-transparent text-sm font-semibold text-white outline-none focus:text-violet-300 min-w-0"
+            />
+            <div class="flex items-center gap-1 shrink-0">
+              <button class="split-btn w-7 h-7 rounded-lg bg-studio-elevated hover:bg-violet-500/20 text-slate-300 hover:text-violet-300 text-xs font-bold" title="Разделить пополам">✂</button>
+              <button class="merge-btn w-7 h-7 rounded-lg bg-studio-elevated hover:bg-blue-500/20 text-slate-300 hover:text-blue-300 text-xs font-bold ${idx === state.chunks.length - 1 ? 'opacity-30 pointer-events-none' : ''}" title="Склеить со следующей">↓</button>
+              <button class="del-btn w-7 h-7 rounded-lg bg-studio-elevated hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 text-xs font-bold" title="Удалить">✕</button>
+            </div>
+          `;
+
+          const input = row.querySelector('.chunk-text-input');
+          input.addEventListener('input', (e) => {
+            state.chunks[idx].text = e.target.value;
+            renderTimingChunksList();
+          });
+          input.addEventListener('focus', () => seekTo(chunk.start + 0.05));
+
+          row.querySelector('.split-btn').addEventListener('click', () => {
+            const words = chunk.text.trim().split(/\s+/).filter(Boolean);
+            if (words.length < 2) {
+              showToast('В этой фразе только 1 слово — делить нечего', 'info');
+              return;
+            }
+            const mid = Math.ceil(words.length / 2);
+            const midTime = Number(((chunk.start + chunk.end) / 2).toFixed(2));
+            const firstHalf = { id: uid(), text: words.slice(0, mid).join(' '), start: chunk.start, end: midTime };
+            const secondHalf = { id: uid(), text: words.slice(mid).join(' '), start: midTime, end: chunk.end };
+            state.chunks.splice(idx, 1, firstHalf, secondHalf);
+            renderAllChunkLists();
+          });
+
+          row.querySelector('.merge-btn').addEventListener('click', () => {
+            if (idx >= state.chunks.length - 1) return;
+            const next = state.chunks[idx + 1];
+            chunk.text = `${chunk.text} ${next.text}`.trim();
+            chunk.end = next.end;
+            state.chunks.splice(idx + 1, 1);
+            renderAllChunkLists();
+          });
+
+          row.querySelector('.del-btn').addEventListener('click', () => {
+            state.chunks.splice(idx, 1);
+            renderAllChunkLists();
+          });
+
+          textChunksList.appendChild(row);
+        });
+      }
+
+      function renderTimingChunksList() {
+        timingChunksList.innerHTML = '';
+
+        state.chunks.forEach((chunk, idx) => {
+          const row = document.createElement('div');
+          const isCurrentSync = state.sync.active && state.sync.currentIndex === idx;
+          row.className = `flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 bg-[#0b0d12] border rounded-xl px-3 py-2 transition ${
+            isCurrentSync ? 'border-violet-500 bg-violet-500/10' : 'border-studio-border hover:border-slate-600'
+          }`;
+
+          row.innerHTML = `
+            <button class="jump-btn flex-1 min-w-[130px] text-left flex items-center gap-2 truncate">
+              <span class="text-[11px] font-mono font-bold text-slate-500 w-5 shrink-0">${idx + 1}</span>
+              <span class="text-xs sm:text-sm font-bold text-white truncate">${chunk.text}</span>
+            </button>
+
+            <div class="flex items-center gap-1.5 text-[11px] font-mono shrink-0">
+              <div class="flex items-center bg-studio-card border border-studio-border rounded-lg overflow-hidden">
+                <button class="nudge-start-minus px-1.5 py-1 hover:bg-studio-elevated text-slate-300">-0.1</button>
+                <span class="px-1.5 text-violet-300 font-bold">${chunk.start.toFixed(2)}s</span>
+                <button class="nudge-start-plus px-1.5 py-1 hover:bg-studio-elevated text-slate-300">+0.1</button>
+              </div>
+              <span class="text-slate-500">→</span>
+              <div class="flex items-center bg-studio-card border border-studio-border rounded-lg overflow-hidden">
+                <button class="nudge-end-minus px-1.5 py-1 hover:bg-studio-elevated text-slate-300">-0.1</button>
+                <span class="px-1.5 text-cyan-300 font-bold">${chunk.end.toFixed(2)}s</span>
+                <button class="nudge-end-plus px-1.5 py-1 hover:bg-studio-elevated text-slate-300">+0.1</button>
+              </div>
+            </div>
+          `;
+
+          row.querySelector('.jump-btn').addEventListener('click', () => {
+            seekTo(chunk.start + 0.02);
+          });
+
+          const nudge = (field, delta) => {
+            const val = Math.max(0, Math.min(state.mediaDuration, Number((chunk[field] + delta).toFixed(2))));
+            if (field === 'start') {
+              chunk.start = Math.min(val, Number((chunk.end - 0.05).toFixed(2)));
+            } else {
+              chunk.end = Math.max(val, Number((chunk.start + 0.05).toFixed(2)));
+            }
+            seekTo(chunk.start + 0.02);
+            renderTimingChunksList();
+          };
+
+          row.querySelector('.nudge-start-minus').addEventListener('click', () => nudge('start', -0.1));
+          row.querySelector('.nudge-start-plus').addEventListener('click', () => nudge('start', 0.1));
+          row.querySelector('.nudge-end-minus').addEventListener('click', () => nudge('end', -0.1));
+          row.querySelector('.nudge-end-plus').addEventListener('click', () => nudge('end', 0.1));
+
+          timingChunksList.appendChild(row);
+        });
+      }
+
+      function renderAllChunkLists() {
+        renderTextChunksList();
+        renderTimingChunksList();
+      }
+
+      function syncStyleControlsFromState() {
+        const s = state.style;
+        fontSelect.value = s.font;
+        animationSelect.value = s.animation;
+        fontSizeSlider.value = s.size;
+        fontSizeVal.textContent = `${s.size} px`;
+        posYSlider.value = s.posY;
+        posYVal.textContent = `${s.posY}%`;
+        outlineWidthSlider.value = s.outlineWidth;
+        outlineWidthVal.textContent = `${s.outlineWidth} px`;
+        shadowBlurSlider.value = s.shadowBlur;
+        shadowBlurVal.textContent = `${s.shadowBlur} px`;
+        textColorInput.value = s.color;
+        textColorHex.textContent = s.color.toUpperCase();
+        accentColorInput.value = s.accentColor;
+        accentColorHex.textContent = s.accentColor.toUpperCase();
+        outlineColorInput.value = s.outlineColor;
+        outlineColorHex.textContent = s.outlineColor.toUpperCase();
+        uppercaseToggle.checked = s.uppercase;
+      }
+
+      function setBgMode(mode) {
+        if (mode === 'video' && state.mediaType !== 'video') {
+          showToast('Сначала загрузи видеофайл кнопкой «Видео / Аудио» сверху', 'info');
+          return;
+        }
+        state.bgMode = mode;
+        document.querySelectorAll('.bg-mode-btn').forEach((btn) => {
+          const active = btn.dataset.bg === mode;
+          btn.className = `bg-mode-btn px-2.5 py-1.5 rounded-lg transition ${
+            active ? 'bg-studio-accent text-white' : 'text-slate-400 hover:text-white'
+          }`;
+        });
+      }
+
+      function updateWordCount() {
+        const words = scriptInput.value.trim().split(/\s+/).filter(Boolean);
+        wordCountBadge.textContent = `${words.length} слов`;
+      }
+
+      // =========================================================================
+      // 11. EVENT LISTENERS
+      // =========================================================================
+      // Tabs
+      document.querySelectorAll('.tab-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const target = btn.dataset.tab;
+          document.querySelectorAll('.tab-btn').forEach((b) => {
+            const active = b.dataset.tab === target;
+            b.className = `tab-btn py-2.5 px-2 rounded-xl text-xs sm:text-sm font-bold transition ${
+              active ? 'bg-studio-accent text-white shadow' : 'text-slate-400 hover:text-white hover:bg-studio-elevated'
+            }`;
+          });
+          document.querySelectorAll('.tab-panel').forEach((panel) => {
+            panel.classList.toggle('hidden', panel.id !== `tab-${target}`);
+          });
+        });
+      });
+
+      // Background mode buttons
+      document.querySelectorAll('.bg-mode-btn').forEach((btn) => {
+        btn.addEventListener('click', () => setBgMode(btn.dataset.bg));
+      });
+
+      // Safe zone toggle
+      safeZoneToggle.addEventListener('change', (e) => {
+        state.showSafeZone = e.target.checked;
+      });
+
+      // File upload & Drag-and-Drop
+      mediaFileInput.addEventListener('change', (e) => {
+        if (e.target.files[0]) handleMediaFile(e.target.files[0]);
+        e.target.value = '';
+      });
+      clearMediaBtn.addEventListener('click', clearMedia);
+
+      ['dragenter', 'dragover'].forEach((evt) => {
+        dropZone.addEventListener(evt, (e) => {
+          e.preventDefault();
+          dropOverlay.classList.remove('hidden');
+        });
+      });
+      ['dragleave', 'drop'].forEach((evt) => {
+        dropZone.addEventListener(evt, (e) => {
+          e.preventDefault();
+          dropOverlay.classList.add('hidden');
+        });
+      });
+      dropZone.addEventListener('drop', (e) => {
+        const file = e.dataTransfer?.files?.[0];
+        if (file) handleMediaFile(file);
+      });
+
+      // Playback controls
+      playPauseBtn.addEventListener('click', togglePlayback);
+      timelineScrubber.addEventListener('input', (e) => {
+        seekTo(parseFloat(e.target.value));
+      });
+      stopSyncQuickBtn.addEventListener('click', finishTapSync);
+
+      // Tab 1: Text slicer
+      scriptInput.addEventListener('input', updateWordCount);
+      document.querySelectorAll('.max-words-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.maxWords = parseInt(btn.dataset.maxwords, 10);
+          document.querySelectorAll('.max-words-btn').forEach((b) => {
+            const active = parseInt(b.dataset.maxwords, 10) === state.maxWords;
+            b.className = `max-words-btn w-8 h-8 rounded-md text-xs font-bold ${
+              active ? 'bg-studio-accent text-white' : 'text-slate-400 hover:text-white'
+            }`;
+          });
+        });
+      });
+      keepPrepositionsToggle.addEventListener('change', (e) => {
+        state.keepPrepositions = e.target.checked;
+      });
+      sliceTextBtn.addEventListener('click', () => {
+        const sliced = sliceTextToChunks(scriptInput.value, state.maxWords, state.keepPrepositions);
+        if (!sliced.length) {
+          showToast('Вставь хотя бы пару слов в поле текста', 'error');
+          return;
+        }
+        state.chunks = sliced;
+        distributeAutoTiming();
+        seekTo(0);
+        showToast(`Нарезано на ${sliced.length} фраз (до ${state.maxWords} слов)`, 'success');
+      });
+      addChunkBtn.addEventListener('click', () => {
+        const lastEnd = state.chunks.length ? state.chunks[state.chunks.length - 1].end : 0;
+        const newStart = Math.min(state.mediaDuration - 0.2, lastEnd);
+        const newEnd = Math.min(state.mediaDuration, newStart + 1.0);
+        state.chunks.push({ id: uid(), text: 'Новая фраза', start: Number(newStart.toFixed(2)), end: Number(newEnd.toFixed(2)) });
+        renderAllChunkLists();
+      });
+
+      // Tab 2: Tap-to-Sync
+      document.querySelectorAll('.sync-speed-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.sync.speed = parseFloat(btn.dataset.speed);
+          document.querySelectorAll('.sync-speed-btn').forEach((b) => {
+            const active = parseFloat(b.dataset.speed) === state.sync.speed;
+            b.className = `sync-speed-btn px-2.5 py-1 rounded-lg ${
+              active ? 'bg-studio-accent text-white' : 'text-slate-400 hover:text-white'
+            }`;
+          });
+        });
+      });
+      startSyncBtn.addEventListener('click', startTapSync);
+      autoTimingBtn.addEventListener('click', () => {
+        distributeAutoTiming();
+        showToast('Авто-тайминг распределён по длине фраз', 'success');
+      });
+      tapNextBtn.addEventListener('click', handleTapNext);
+      undoTapBtn.addEventListener('click', undoLastTap);
+      finishSyncBtn.addEventListener('click', finishTapSync);
+
+      // Keyboard shortcuts (Magic Keyboard / Desktop)
+      window.addEventListener('keydown', (e) => {
+        const tag = document.activeElement?.tagName;
+        const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+
+        if (state.sync.active) {
+          if (e.code === 'Space') {
+            e.preventDefault();
+            handleTapNext();
+          } else if (e.code === 'KeyZ') {
+            e.preventDefault();
+            undoLastTap();
+          } else if (e.code === 'Escape') {
+            e.preventDefault();
+            finishTapSync();
+          }
+          return;
+        }
+
+        if (!isTyping && e.code === 'Space') {
+          e.preventDefault();
+          togglePlayback();
+        }
+      });
+
+      // Tab 3: Style presets & controls
+      document.querySelectorAll('.preset-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const preset = STYLE_PRESETS[btn.dataset.preset];
+          if (!preset) return;
+          state.style = { ...preset };
+          syncStyleControlsFromState();
+          showToast(`Применён стиль: ${btn.querySelector('div').textContent}`, 'success');
+        });
+      });
+
+      fontSelect.addEventListener('change', (e) => { state.style.font = e.target.value; });
+      animationSelect.addEventListener('change', (e) => { state.style.animation = e.target.value; });
+      fontSizeSlider.addEventListener('input', (e) => {
+        state.style.size = parseInt(e.target.value, 10);
+        fontSizeVal.textContent = `${state.style.size} px`;
+      });
+      posYSlider.addEventListener('input', (e) => {
+        state.style.posY = parseInt(e.target.value, 10);
+        posYVal.textContent = `${state.style.posY}%`;
+      });
+      outlineWidthSlider.addEventListener('input', (e) => {
+        state.style.outlineWidth = parseInt(e.target.value, 10);
+        outlineWidthVal.textContent = `${state.style.outlineWidth} px`;
+      });
+      shadowBlurSlider.addEventListener('input', (e) => {
+        state.style.shadowBlur = parseInt(e.target.value, 10);
+        shadowBlurVal.textContent = `${state.style.shadowBlur} px`;
+      });
+      textColorInput.addEventListener('input', (e) => {
+        state.style.color = e.target.value;
+        textColorHex.textContent = e.target.value.toUpperCase();
+      });
+      accentColorInput.addEventListener('input', (e) => {
+        state.style.accentColor = e.target.value;
+        accentColorHex.textContent = e.target.value.toUpperCase();
+      });
+      outlineColorInput.addEventListener('input', (e) => {
+        state.style.outlineColor = e.target.value;
+        outlineColorHex.textContent = e.target.value.toUpperCase();
+      });
+      uppercaseToggle.addEventListener('change', (e) => {
+        state.style.uppercase = e.target.checked;
+      });
+
+      // Tab 4: Export
+      document.querySelectorAll('.fps-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.export.fps = parseInt(btn.dataset.fps, 10);
+          document.querySelectorAll('.fps-btn').forEach((b) => {
+            const active = parseInt(b.dataset.fps, 10) === state.export.fps;
+            b.className = `fps-btn px-3 py-1 rounded-md text-xs font-bold ${
+              active ? 'bg-studio-accent text-white' : 'text-slate-400 hover:text-white'
+            }`;
+          });
+        });
+      });
+      includeAudioToggle.addEventListener('change', (e) => {
+        state.export.includeAudio = e.target.checked;
+      });
+      startExportBtn.addEventListener('click', startVideoExport);
+      cancelExportBtn.addEventListener('click', () => {
+        state.export.cancelled = true;
+      });
+      downloadSrtBtn.addEventListener('click', downloadSrtFile);
+
+      // =========================================================================
+      // 12. BOOTSTRAP INITIAL DEMO STATE
+      // =========================================================================
+      function init() {
+        scriptInput.value = DEMO_SCRIPT;
+        updateWordCount();
+        state.chunks = sliceTextToChunks(DEMO_SCRIPT, state.maxWords, state.keepPrepositions);
+        distributeAutoTiming();
+        syncStyleControlsFromState();
+        updateScrubberBounds();
+        requestAnimationFrame(animationLoop);
+      }
+
+      window.onload = init;
+    })();
+  </script>
+</body>
+</html>
