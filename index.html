@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ru" class="dark">
 <head>
@@ -142,7 +143,7 @@
   </div>
 
   <!-- Hidden media elements driving playback & video background -->
-  <video id="sourceVideo" playsinline webkit-playsinline muted="false" preload="auto" class="hidden"></video>
+  <video id="sourceVideo" playsinline webkit-playsinline preload="auto" class="hidden"></video>
   <audio id="sourceAudio" preload="auto" class="hidden"></audio>
 
   <!-- Toast notification container -->
@@ -1030,6 +1031,8 @@
         const el = getActiveMediaEl();
         if (el) {
           el.playbackRate = rate;
+          el.muted = false;
+          el.volume = 1;
           try {
             el.currentTime = state.playback.currentTime;
             await el.play();
